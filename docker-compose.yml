@@ -38,9 +38,9 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://pmp:pmp_dev_password@postgres:5432/pmp
-      JWT_SECRET: pmp_dev_jwt_secret_change_me
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
       JWT_EXPIRES_IN: 8h
-      GOOGLE_CLIENT_ID: replace-with-real-google-oauth-client-id
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID must be set}
     ports:
       - "3001:3001"
     depends_on:
@@ -58,7 +58,7 @@ services:
       dockerfile: services/gateway/Dockerfile
     restart: unless-stopped
     environment:
-      JWT_SECRET: pmp_dev_jwt_secret_change_me
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
     ports:
       - "3000:3000"
     depends_on:

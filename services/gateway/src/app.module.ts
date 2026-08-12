@@ -5,10 +5,21 @@ import { HealthController } from './health/health.controller';
 import { WhoAmIController } from './auth/whoami.controller';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 
+function requireJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET must be set in production');
+    }
+    return 'dev-secret-change-me';
+  }
+  return secret;
+}
+
 @Module({
   imports: [
     JwtModule.register({
-      secret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
+      secret: requireJwtSecret(),
     }),
   ],
   controllers: [HealthController, WhoAmIController],
