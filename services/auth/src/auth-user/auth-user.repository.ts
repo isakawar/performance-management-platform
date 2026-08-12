@@ -11,12 +11,14 @@ export class AuthUserRepository {
   ) {}
 
   async findOrCreate(googleSub: string, email: string): Promise<AuthUserEntity> {
-    const existing = await this.repository.findOne({ where: { googleSub } });
-    if (existing) {
-      return existing;
-    }
+    await this.repository
+      .createQueryBuilder()
+      .insert()
+      .into(AuthUserEntity)
+      .values({ googleSub, email })
+      .orUpdate(['email'], ['google_sub'])
+      .execute();
 
-    const created = this.repository.create({ googleSub, email });
-    return this.repository.save(created);
+    return this.repository.findOneOrFail({ where: { googleSub } });
   }
 }

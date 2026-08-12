@@ -52,4 +52,12 @@ describe('AuthUserRepository (integration)', () => {
 
     expect(first.id).not.toBe(second.id);
   });
+
+  it('updates the stored email when a returning user logs in with a changed email', async () => {
+    const first = await repository.findOrCreate('google-sub-4', 'old-address@racoongang.com');
+    const second = await repository.findOrCreate('google-sub-4', 'new-address@racoongang.com');
+
+    expect(second.id).toBe(first.id);
+    expect(second.email).toBe('new-address@racoongang.com');
+  });
 });
