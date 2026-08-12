@@ -31,11 +31,34 @@ services:
       timeout: 5s
       retries: 10
 
+  auth:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://pmp:pmp_dev_password@postgres:5432/pmp
+      JWT_SECRET: pmp_dev_jwt_secret_change_me
+      JWT_EXPIRES_IN: 8h
+      GOOGLE_CLIENT_ID: replace-with-real-google-oauth-client-id
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   gateway:
     build:
       context: .
       dockerfile: services/gateway/Dockerfile
     restart: unless-stopped
+    environment:
+      JWT_SECRET: pmp_dev_jwt_secret_change_me
     ports:
       - "3000:3000"
     depends_on:
