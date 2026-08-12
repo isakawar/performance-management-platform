@@ -1,6 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { OAuth2Client } from 'google-auth-library';
 
+const WORKSPACE_DOMAIN = 'racoongang.com';
+
 export interface GoogleIdentity {
   googleSub: string;
   email: string;
@@ -28,6 +30,9 @@ export class GoogleOidcVerifier {
     }
     if (!payload.email_verified) {
       throw new UnauthorizedException('Google email not verified');
+    }
+    if (payload.hd !== WORKSPACE_DOMAIN) {
+      throw new UnauthorizedException('Google account is not part of the racoongang.com Workspace');
     }
 
     return { googleSub: payload.sub, email: payload.email };

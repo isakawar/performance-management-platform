@@ -10,6 +10,7 @@ describe('GoogleOidcVerifier', () => {
         sub: 'google-sub-1',
         email: 'qa1@racoongang.com',
         email_verified: true,
+        hd: 'racoongang.com',
       }),
     } as never);
 
@@ -25,10 +26,38 @@ describe('GoogleOidcVerifier', () => {
         sub: 'google-sub-1',
         email: 'qa1@racoongang.com',
         email_verified: false,
+        hd: 'racoongang.com',
       }),
     } as never);
 
     await expect(verifier.verify('unverified-token')).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('rejects a verified token whose hd claim does not match the Workspace domain', async () => {
+    const verifier = new GoogleOidcVerifier('test-client-id');
+    jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue({
+      getPayload: () => ({
+        sub: 'google-sub-1',
+        email: 'qa1@racoongang.com',
+        email_verified: true,
+        hd: 'not-racoongang.com',
+      }),
+    } as never);
+
+    await expect(verifier.verify('wrong-hd-token')).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('rejects a verified token missing the hd claim', async () => {
+    const verifier = new GoogleOidcVerifier('test-client-id');
+    jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue({
+      getPayload: () => ({
+        sub: 'google-sub-1',
+        email: 'qa1@racoongang.com',
+        email_verified: true,
+      }),
+    } as never);
+
+    await expect(verifier.verify('missing-hd-token')).rejects.toThrow(UnauthorizedException);
   });
 
   it('rejects a token with no payload', async () => {
