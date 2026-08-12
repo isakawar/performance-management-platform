@@ -15,7 +15,12 @@ export class GoogleOidcVerifier {
   }
 
   async verify(idToken: string): Promise<GoogleIdentity> {
-    const ticket = await this.client.verifyIdToken({ idToken, audience: this.clientId });
+    let ticket;
+    try {
+      ticket = await this.client.verifyIdToken({ idToken, audience: this.clientId });
+    } catch (error) {
+      throw new UnauthorizedException('Invalid Google ID token');
+    }
     const payload = ticket.getPayload();
 
     if (!payload?.sub || !payload.email) {

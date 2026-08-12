@@ -39,4 +39,11 @@ describe('GoogleOidcVerifier', () => {
 
     await expect(verifier.verify('malformed-token')).rejects.toThrow(UnauthorizedException);
   });
+
+  it('rejects when verifyIdToken throws', async () => {
+    const verifier = new GoogleOidcVerifier('test-client-id');
+    jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockRejectedValue(new Error('Token used too late') as never);
+
+    await expect(verifier.verify('expired-token')).rejects.toThrow(UnauthorizedException);
+  });
 });
