@@ -1,7 +1,8 @@
 import 'express';
+import { AccessTokenPayload } from '@pmp/shared';
 
 declare module 'express' {
   interface Request {
-    user?: unknown;
+    user?: AccessTokenPayload;
   }
 }

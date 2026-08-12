@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { AccessTokenPayload } from './access-token-payload';
+import { AccessTokenPayload } from '@pmp/shared';
 
 @Injectable()
 export class AuthTokenService {
