@@ -1,4 +1,4 @@
-import { JwtModule, JwtService } from '@nestjs/jwt';
+import { JwtModule } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { AuthTokenService } from './auth-token.service';
 
