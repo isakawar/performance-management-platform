@@ -48,6 +48,14 @@ export class AssessmentController {
       (assessment.type === 'LEAD' && review.leadEmail === email);
   }
 
+  private async validCompetencyIds(review: { questionnaireId: string }): Promise<Set<string>> {
+    const questionnaire = await this.questionnaires.findByIdWithFramework(review.questionnaireId);
+    const allCompetencyIds = questionnaire!.framework.categories.flatMap((category) =>
+      category.competencies.map((competency) => competency.id),
+    );
+    return new Set(allCompetencyIds);
+  }
+
   @Get(':id')
   async get(
     @Param('id') id: string,
@@ -79,6 +87,13 @@ export class AssessmentController {
     }
 
     const dto = parseSaveAnswersDto(body);
+    const validCompetencyIds = await this.validCompetencyIds(review);
+    const invalid = dto.answers.filter((answer) => !validCompetencyIds.has(answer.competencyId));
+    if (invalid.length > 0) {
+      throw new BadRequestException(
+        `Unknown competencyId(s) for this questionnaire: ${invalid.map((entry) => entry.competencyId).join(', ')}`,
+      );
+    }
     await this.answers.saveDraft(id, dto.answers);
     return { saved: true };
   }
@@ -93,13 +108,10 @@ export class AssessmentController {
       throw new BadRequestException('Assessment already submitted');
     }
 
-    const questionnaire = await this.questionnaires.findByIdWithFramework(review.questionnaireId);
-    const allCompetencyIds = questionnaire!.framework.categories.flatMap((category) =>
-      category.competencies.map((competency) => competency.id),
-    );
+    const validCompetencyIds = await this.validCompetencyIds(review);
     const answered = await this.answers.findByAssessmentId(id);
     const answeredIds = new Set(answered.map((entry) => entry.competencyId));
-    const missing = allCompetencyIds.filter((competencyId) => !answeredIds.has(competencyId));
+    const missing = [...validCompetencyIds].filter((competencyId) => !answeredIds.has(competencyId));
     if (missing.length > 0) {
       throw new BadRequestException(`Missing answers for competencies: ${missing.join(', ')}`);
     }
