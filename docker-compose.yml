@@ -95,5 +95,18 @@ services:
       timeout: 5s
       retries: 10
 
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_GATEWAY_URL: http://localhost:3000
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3010:3010"
+    depends_on:
+      gateway:
+        condition: service_healthy
+
 volumes:
   postgres_data:
