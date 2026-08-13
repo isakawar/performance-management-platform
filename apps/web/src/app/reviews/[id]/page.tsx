@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { apiFetch } from '@/lib/api-client';
+import { apiFetch, ApiError } from '@/lib/api-client';
 import { NavBar } from '@/components/nav-bar';
+import { useRequireAuth } from '@/lib/use-current-user';
 
 interface AssessmentSummary {
   id: string;
@@ -25,18 +26,31 @@ interface ReviewDetail {
 }
 
 export default function ReviewDetailPage(): JSX.Element {
+  useRequireAuth();
   const params = useParams<{ id: string }>();
   const [review, setReview] = useState<ReviewDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetch<ReviewDetail>(`/assessment/reviews/${params.id}`).then(setReview);
+    async function load(): Promise<void> {
+      setError(null);
+      try {
+        const fetchedReview = await apiFetch<ReviewDetail>(`/assessment/reviews/${params.id}`);
+        setReview(fetchedReview);
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'Failed to load review');
+      }
+    }
+    load();
   }, [params.id]);
 
   if (!review) {
     return (
       <>
         <NavBar />
-        <main className="p-8">Loading…</main>
+        <main className="p-8">
+          {error ? <p className="text-sm text-red-600">{error}</p> : 'Loading…'}
+        </main>
       </>
     );
   }

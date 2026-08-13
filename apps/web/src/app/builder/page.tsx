@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { apiFetch } from '@/lib/api-client';
+import { apiFetch, ApiError } from '@/lib/api-client';
 import { NavBar } from '@/components/nav-bar';
+import { useRequireAuth } from '@/lib/use-current-user';
 
 interface Framework {
   id: string;
@@ -17,14 +18,21 @@ interface Questionnaire {
 }
 
 export default function BuilderPage(): JSX.Element {
+  useRequireAuth();
   const [frameworks, setFrameworks] = useState<Framework[]>([]);
   const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
   const [frameworkName, setFrameworkName] = useState('');
   const [questionnaireForm, setQuestionnaireForm] = useState({ name: '', direction: '', frameworkId: '' });
+  const [error, setError] = useState<string | null>(null);
 
   async function refresh(): Promise<void> {
-    setFrameworks(await apiFetch<Framework[]>('/assessment/frameworks'));
-    setQuestionnaires(await apiFetch<Questionnaire[]>('/assessment/questionnaires'));
+    setError(null);
+    try {
+      setFrameworks(await apiFetch<Framework[]>('/assessment/frameworks'));
+      setQuestionnaires(await apiFetch<Questionnaire[]>('/assessment/questionnaires'));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to load builder data');
+    }
   }
 
   useEffect(() => {
@@ -33,16 +41,26 @@ export default function BuilderPage(): JSX.Element {
 
   async function createFramework(event: React.FormEvent): Promise<void> {
     event.preventDefault();
-    await apiFetch('/assessment/frameworks', { method: 'POST', body: JSON.stringify({ name: frameworkName }) });
-    setFrameworkName('');
-    await refresh();
+    setError(null);
+    try {
+      await apiFetch('/assessment/frameworks', { method: 'POST', body: JSON.stringify({ name: frameworkName }) });
+      setFrameworkName('');
+      await refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to create framework');
+    }
   }
 
   async function createQuestionnaire(event: React.FormEvent): Promise<void> {
     event.preventDefault();
-    await apiFetch('/assessment/questionnaires', { method: 'POST', body: JSON.stringify(questionnaireForm) });
-    setQuestionnaireForm({ name: '', direction: '', frameworkId: '' });
-    await refresh();
+    setError(null);
+    try {
+      await apiFetch('/assessment/questionnaires', { method: 'POST', body: JSON.stringify(questionnaireForm) });
+      setQuestionnaireForm({ name: '', direction: '', frameworkId: '' });
+      await refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to create questionnaire');
+    }
   }
 
   return (
@@ -114,6 +132,8 @@ export default function BuilderPage(): JSX.Element {
             </button>
           </form>
         </section>
+
+        {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
       </main>
     </>
   );

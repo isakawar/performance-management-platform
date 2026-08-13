@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { apiFetch } from '@/lib/api-client';
+import { apiFetch, ApiError } from '@/lib/api-client';
 import { NavBar } from '@/components/nav-bar';
+import { useRequireAuth } from '@/lib/use-current-user';
 
 interface GradeExpectation {
   grade: string;
@@ -29,15 +30,22 @@ interface FrameworkWithStructure {
 }
 
 export default function FrameworkDetailPage(): JSX.Element {
+  useRequireAuth();
   const params = useParams<{ frameworkId: string }>();
   const [framework, setFramework] = useState<FrameworkWithStructure | null>(null);
   const [categoryName, setCategoryName] = useState('');
   const [competencyForm, setCompetencyForm] = useState({ categoryId: '', name: '', description: '', weight: '1' });
   const [gradeExpectations, setGradeExpectations] = useState<GradeExpectation[]>([]);
   const [gradeInput, setGradeInput] = useState({ grade: '', description: '' });
+  const [error, setError] = useState<string | null>(null);
 
   async function refresh(): Promise<void> {
-    setFramework(await apiFetch<FrameworkWithStructure>(`/assessment/frameworks/${params.frameworkId}`));
+    setError(null);
+    try {
+      setFramework(await apiFetch<FrameworkWithStructure>(`/assessment/frameworks/${params.frameworkId}`));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to load framework');
+    }
   }
 
   useEffect(() => {
@@ -46,12 +54,17 @@ export default function FrameworkDetailPage(): JSX.Element {
 
   async function createCategory(event: React.FormEvent): Promise<void> {
     event.preventDefault();
-    await apiFetch(`/assessment/frameworks/${params.frameworkId}/categories`, {
-      method: 'POST',
-      body: JSON.stringify({ name: categoryName, orderIndex: framework?.categories.length ?? 0 }),
-    });
-    setCategoryName('');
-    await refresh();
+    setError(null);
+    try {
+      await apiFetch(`/assessment/frameworks/${params.frameworkId}/categories`, {
+        method: 'POST',
+        body: JSON.stringify({ name: categoryName, orderIndex: framework?.categories.length ?? 0 }),
+      });
+      setCategoryName('');
+      await refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to create category');
+    }
   }
 
   function addGradeExpectation(): void {
@@ -64,25 +77,32 @@ export default function FrameworkDetailPage(): JSX.Element {
 
   async function createCompetency(event: React.FormEvent): Promise<void> {
     event.preventDefault();
-    await apiFetch(`/assessment/categories/${competencyForm.categoryId}/competencies`, {
-      method: 'POST',
-      body: JSON.stringify({
-        name: competencyForm.name,
-        description: competencyForm.description || undefined,
-        weight: Number(competencyForm.weight),
-        gradeExpectations,
-      }),
-    });
-    setCompetencyForm({ categoryId: '', name: '', description: '', weight: '1' });
-    setGradeExpectations([]);
-    await refresh();
+    setError(null);
+    try {
+      await apiFetch(`/assessment/categories/${competencyForm.categoryId}/competencies`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: competencyForm.name,
+          description: competencyForm.description || undefined,
+          weight: Number(competencyForm.weight),
+          gradeExpectations,
+        }),
+      });
+      setCompetencyForm({ categoryId: '', name: '', description: '', weight: '1' });
+      setGradeExpectations([]);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to create competency');
+    }
   }
 
   if (!framework) {
     return (
       <>
         <NavBar />
-        <main className="p-8">Loading…</main>
+        <main className="p-8">
+          {error ? <p className="text-sm text-red-600">{error}</p> : 'Loading…'}
+        </main>
       </>
     );
   }
@@ -189,6 +209,8 @@ export default function FrameworkDetailPage(): JSX.Element {
             Add competency
           </button>
         </form>
+
+        {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
       </main>
     </>
   );

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { apiFetch } from '@/lib/api-client';
+import { apiFetch, ApiError } from '@/lib/api-client';
 import { NavBar } from '@/components/nav-bar';
+import { useRequireAuth } from '@/lib/use-current-user';
 
 interface Review {
   id: string;
@@ -18,13 +19,20 @@ interface Questionnaire {
 }
 
 export default function ReviewsPage(): JSX.Element {
+  useRequireAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [questionnaires, setQuestionnaires] = useState<Questionnaire[]>([]);
   const [form, setForm] = useState({ questionnaireId: '', employeeEmail: '', leadEmail: '' });
+  const [error, setError] = useState<string | null>(null);
 
   async function refresh(): Promise<void> {
-    setReviews(await apiFetch<Review[]>('/assessment/reviews'));
-    setQuestionnaires(await apiFetch<Questionnaire[]>('/assessment/questionnaires'));
+    setError(null);
+    try {
+      setReviews(await apiFetch<Review[]>('/assessment/reviews'));
+      setQuestionnaires(await apiFetch<Questionnaire[]>('/assessment/questionnaires'));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to load reviews');
+    }
   }
 
   useEffect(() => {
@@ -33,9 +41,14 @@ export default function ReviewsPage(): JSX.Element {
 
   async function startReview(event: React.FormEvent): Promise<void> {
     event.preventDefault();
-    await apiFetch('/assessment/reviews', { method: 'POST', body: JSON.stringify(form) });
-    setForm({ questionnaireId: '', employeeEmail: '', leadEmail: '' });
-    await refresh();
+    setError(null);
+    try {
+      await apiFetch('/assessment/reviews', { method: 'POST', body: JSON.stringify(form) });
+      setForm({ questionnaireId: '', employeeEmail: '', leadEmail: '' });
+      await refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to start review');
+    }
   }
 
   return (
@@ -85,6 +98,8 @@ export default function ReviewsPage(): JSX.Element {
             Start review
           </button>
         </form>
+
+        {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
       </main>
     </>
   );
