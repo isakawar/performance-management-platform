@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { NavBar } from '@/components/nav-bar';
+import { useRequireAuth } from '@/lib/use-current-user';
 
 const GRADES = ['UNWILLING', 'JUNIOR', 'JUNIOR+', 'MIDDLE', 'MIDDLE+', 'SENIOR', 'LEAD'];
 
@@ -41,6 +42,7 @@ interface Questionnaire {
 }
 
 export default function AssessmentPage(): JSX.Element {
+  useRequireAuth();
   const params = useParams<{ id: string }>();
   const [assessment, setAssessment] = useState<AssessmentDetail | null>(null);
   const [questionnaire, setQuestionnaire] = useState<Questionnaire | null>(null);
@@ -83,13 +85,17 @@ export default function AssessmentPage(): JSX.Element {
     });
   }
 
+  async function persistDraft(): Promise<void> {
+    await apiFetch(`/assessment/assessments/${params.id}/answers`, {
+      method: 'PUT',
+      body: JSON.stringify({ answers: Object.values(drafts).filter((entry) => entry.grade) }),
+    });
+  }
+
   async function saveDraft(): Promise<void> {
     setError(null);
     try {
-      await apiFetch(`/assessment/assessments/${params.id}/answers`, {
-        method: 'PUT',
-        body: JSON.stringify({ answers: Object.values(drafts).filter((entry) => entry.grade) }),
-      });
+      await persistDraft();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to save draft');
     }
@@ -98,7 +104,7 @@ export default function AssessmentPage(): JSX.Element {
   async function submit(): Promise<void> {
     setError(null);
     try {
-      await saveDraft();
+      await persistDraft();
       const updated = await apiFetch<AssessmentDetail>(`/assessment/assessments/${params.id}/submit`, { method: 'POST' });
       setAssessment(updated);
     } catch (err) {
