@@ -4,7 +4,7 @@ import { GoogleOidcVerifier } from './google-oidc.verifier';
 
 describe('GoogleOidcVerifier', () => {
   it('returns the googleSub and email from a valid, verified token', async () => {
-    const verifier = new GoogleOidcVerifier('test-client-id');
+    const verifier = new GoogleOidcVerifier('test-client-id', 'racoongang.com');
     jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue({
       getPayload: () => ({
         sub: 'google-sub-1',
@@ -20,7 +20,7 @@ describe('GoogleOidcVerifier', () => {
   });
 
   it('rejects a token whose email is not verified', async () => {
-    const verifier = new GoogleOidcVerifier('test-client-id');
+    const verifier = new GoogleOidcVerifier('test-client-id', 'racoongang.com');
     jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue({
       getPayload: () => ({
         sub: 'google-sub-1',
@@ -34,7 +34,7 @@ describe('GoogleOidcVerifier', () => {
   });
 
   it('rejects a verified token whose hd claim does not match the Workspace domain', async () => {
-    const verifier = new GoogleOidcVerifier('test-client-id');
+    const verifier = new GoogleOidcVerifier('test-client-id', 'racoongang.com');
     jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue({
       getPayload: () => ({
         sub: 'google-sub-1',
@@ -48,7 +48,7 @@ describe('GoogleOidcVerifier', () => {
   });
 
   it('rejects a verified token missing the hd claim', async () => {
-    const verifier = new GoogleOidcVerifier('test-client-id');
+    const verifier = new GoogleOidcVerifier('test-client-id', 'racoongang.com');
     jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue({
       getPayload: () => ({
         sub: 'google-sub-1',
@@ -61,7 +61,7 @@ describe('GoogleOidcVerifier', () => {
   });
 
   it('rejects a token with no payload', async () => {
-    const verifier = new GoogleOidcVerifier('test-client-id');
+    const verifier = new GoogleOidcVerifier('test-client-id', 'racoongang.com');
     jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue({
       getPayload: () => undefined,
     } as never);
@@ -70,9 +70,24 @@ describe('GoogleOidcVerifier', () => {
   });
 
   it('rejects when verifyIdToken throws', async () => {
-    const verifier = new GoogleOidcVerifier('test-client-id');
+    const verifier = new GoogleOidcVerifier('test-client-id', 'racoongang.com');
     jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockRejectedValue(new Error('Token used too late') as never);
 
     await expect(verifier.verify('expired-token')).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('allows any hd claim (including none) when the workspace domain is the wildcard', async () => {
+    const verifier = new GoogleOidcVerifier('test-client-id', '*');
+    jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue({
+      getPayload: () => ({
+        sub: 'google-sub-1',
+        email: 'someone@gmail.com',
+        email_verified: true,
+      }),
+    } as never);
+
+    const identity = await verifier.verify('any-domain-token');
+
+    expect(identity).toEqual({ googleSub: 'google-sub-1', email: 'someone@gmail.com' });
   });
 });

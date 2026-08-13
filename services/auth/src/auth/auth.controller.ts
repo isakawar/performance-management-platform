@@ -17,7 +17,7 @@ export class AuthController {
   async loginWithGoogle(@Body() body: unknown): Promise<{ accessToken: string }> {
     const dto = parseGoogleLoginDto(body);
     const identity = await this.googleVerifier.verify(dto.idToken);
-    assertAllowedDomain(identity.email);
+    assertAllowedDomain(identity.email, process.env.ALLOWED_EMAIL_DOMAIN ?? 'racoongang.com');
 
     const user = await this.authUserRepository.findOrCreate(identity.googleSub, identity.email);
     const accessToken = this.authTokenService.issue({ sub: user.id, email: user.email });

@@ -53,7 +53,8 @@ function requireGoogleClientId(): string {
     AuthUserRepository,
     {
       provide: GoogleOidcVerifier,
-      useFactory: () => new GoogleOidcVerifier(requireGoogleClientId()),
+      useFactory: () =>
+        new GoogleOidcVerifier(requireGoogleClientId(), process.env.ALLOWED_EMAIL_DOMAIN ?? 'racoongang.com'),
     },
   ],
 })
