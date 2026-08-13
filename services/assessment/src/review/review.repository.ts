@@ -29,15 +29,16 @@ export class ReviewRepository {
       throw new NotFoundException(`Questionnaire ${questionnaireId} not found`);
     }
 
-    const review = await this.reviews.save(this.reviews.create({ questionnaireId, employeeEmail, leadEmail }));
-    const selfAssessment = await this.assessments.save(
-      this.assessments.create({ reviewId: review.id, type: 'SELF', status: 'DRAFT', submittedAt: null }),
-    );
-    const leadAssessment = await this.assessments.save(
-      this.assessments.create({ reviewId: review.id, type: 'LEAD', status: 'DRAFT', submittedAt: null }),
-    );
-
-    return { review, selfAssessmentId: selfAssessment.id, leadAssessmentId: leadAssessment.id };
+    return this.reviews.manager.transaction(async (manager) => {
+      const review = await manager.save(manager.create(ReviewEntity, { questionnaireId, employeeEmail, leadEmail }));
+      const selfAssessment = await manager.save(
+        manager.create(AssessmentEntity, { reviewId: review.id, type: 'SELF', status: 'DRAFT', submittedAt: null }),
+      );
+      const leadAssessment = await manager.save(
+        manager.create(AssessmentEntity, { reviewId: review.id, type: 'LEAD', status: 'DRAFT', submittedAt: null }),
+      );
+      return { review, selfAssessmentId: selfAssessment.id, leadAssessmentId: leadAssessment.id };
+    });
   }
 
   findAllForUser(email: string): Promise<ReviewEntity[]> {
