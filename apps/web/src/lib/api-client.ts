@@ -1,4 +1,4 @@
-import { getAccessToken } from './auth-storage';
+import { clearAccessToken, getAccessToken } from './auth-storage';
 
 const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL ?? 'http://localhost:3000';
 
@@ -23,6 +23,9 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
 
   if (!response.ok) {
     const body = await response.text();
+    if (response.status === 401) {
+      clearAccessToken();
+    }
     throw new ApiError(response.status, `${response.status} ${path}: ${body}`);
   }
 
