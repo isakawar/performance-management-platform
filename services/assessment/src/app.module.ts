@@ -8,7 +8,11 @@ import { CategoryEntity } from './framework/category.entity';
 import { CompetencyEntity } from './framework/competency.entity';
 import { CompetencyGradeExpectationEntity } from './framework/competency-grade-expectation.entity';
 import { FrameworkRepository } from './framework/framework.repository';
+import { QuestionnaireController } from './questionnaire/questionnaire.controller';
+import { QuestionnaireEntity } from './questionnaire/questionnaire.entity';
+import { QuestionnaireRepository } from './questionnaire/questionnaire.repository';
 import { CreateFramework1723600000000 } from './database/migrations/1723600000000-create-framework';
+import { CreateQuestionnaire1723610000000 } from './database/migrations/1723610000000-create-questionnaire';
 
 function requireJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -29,14 +33,14 @@ function requireJwtSecret(): string {
     TypeOrmModule.forRoot({
       type: 'postgres',
       url: process.env.DATABASE_URL ?? 'postgres://pmp:pmp_dev_password@localhost:5432/pmp',
-      entities: [FrameworkEntity, CategoryEntity, CompetencyEntity, CompetencyGradeExpectationEntity],
-      migrations: [CreateFramework1723600000000],
+      entities: [FrameworkEntity, CategoryEntity, CompetencyEntity, CompetencyGradeExpectationEntity, QuestionnaireEntity],
+      migrations: [CreateFramework1723600000000, CreateQuestionnaire1723610000000],
       migrationsRun: true,
       synchronize: false,
     }),
-    TypeOrmModule.forFeature([FrameworkEntity, CategoryEntity, CompetencyEntity, CompetencyGradeExpectationEntity]),
+    TypeOrmModule.forFeature([FrameworkEntity, CategoryEntity, CompetencyEntity, CompetencyGradeExpectationEntity, QuestionnaireEntity]),
   ],
-  controllers: [HealthController, FrameworkController, CategoryController],
-  providers: [FrameworkRepository],
+  controllers: [HealthController, FrameworkController, CategoryController, QuestionnaireController],
+  providers: [FrameworkRepository, QuestionnaireRepository],
 })
 export class AppModule {}

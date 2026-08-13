@@ -7,6 +7,8 @@ import { CompetencyEntity } from './competency.entity';
 import { CompetencyGradeExpectationEntity } from './competency-grade-expectation.entity';
 import { GradeExpectationInput } from './framework.dto';
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export interface FrameworkWithStructure extends FrameworkEntity {
   categories: (CategoryEntity & {
     competencies: (CompetencyEntity & { gradeExpectations: CompetencyGradeExpectationEntity[] })[];
@@ -64,6 +66,9 @@ export class FrameworkRepository {
   }
 
   async findByIdWithStructure(id: string): Promise<FrameworkWithStructure | null> {
+    if (!UUID_PATTERN.test(id)) {
+      return null;
+    }
     const framework = await this.frameworks.findOne({ where: { id } });
     if (!framework) {
       return null;
