@@ -2,10 +2,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { QuestionnaireRepository } from '../questionnaire/questionnaire.repository';
+import { isValidUuid } from '../shared/uuid';
 import { ReviewEntity } from './review.entity';
 import { AssessmentEntity } from './assessment.entity';
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface ReviewWithAssessments extends ReviewEntity {
   assessments: AssessmentEntity[];
@@ -50,7 +49,7 @@ export class ReviewRepository {
   }
 
   async findByIdWithAssessments(id: string): Promise<ReviewWithAssessments | null> {
-    if (!UUID_PATTERN.test(id)) {
+    if (!isValidUuid(id)) {
       return null;
     }
     const review = await this.reviews.findOne({ where: { id } });
@@ -62,14 +61,14 @@ export class ReviewRepository {
   }
 
   findAssessmentById(assessmentId: string): Promise<AssessmentEntity | null> {
-    if (!UUID_PATTERN.test(assessmentId)) {
+    if (!isValidUuid(assessmentId)) {
       return Promise.resolve(null);
     }
     return this.assessments.findOne({ where: { id: assessmentId } });
   }
 
   findReviewById(id: string): Promise<ReviewEntity | null> {
-    if (!UUID_PATTERN.test(id)) {
+    if (!isValidUuid(id)) {
       return Promise.resolve(null);
     }
     return this.reviews.findOne({ where: { id } });

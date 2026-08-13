@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FrameworkRepository, FrameworkWithStructure } from '../framework/framework.repository';
+import { isValidUuid } from '../shared/uuid';
 import { QuestionnaireEntity } from './questionnaire.entity';
 
 export interface QuestionnaireWithFramework extends QuestionnaireEntity {
@@ -20,6 +21,9 @@ export class QuestionnaireRepository {
   }
 
   findById(id: string): Promise<QuestionnaireEntity | null> {
+    if (!isValidUuid(id)) {
+      return Promise.resolve(null);
+    }
     return this.questionnaires.findOne({ where: { id } });
   }
 

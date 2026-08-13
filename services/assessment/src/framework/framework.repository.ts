@@ -1,13 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { FrameworkEntity } from './framework.entity';
 import { CategoryEntity } from './category.entity';
 import { CompetencyEntity } from './competency.entity';
 import { CompetencyGradeExpectationEntity } from './competency-grade-expectation.entity';
 import { GradeExpectationInput } from './framework.dto';
+import { isValidUuid } from '../shared/uuid';
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isUniqueViolation(error: unknown): boolean {
+  if (!(error instanceof QueryFailedError)) {
+    return false;
+  }
+  const driverError = (error as QueryFailedError & { code?: string; driverError?: { code?: string } }).driverError;
+  const code = (error as QueryFailedError & { code?: string }).code ?? driverError?.code;
+  return code === '23505';
+}
 
 export interface FrameworkWithStructure extends FrameworkEntity {
   categories: (CategoryEntity & {
@@ -29,11 +37,21 @@ export class FrameworkRepository {
     return this.frameworks.find({ order: { name: 'ASC' } });
   }
 
-  create(name: string): Promise<FrameworkEntity> {
-    return this.frameworks.save(this.frameworks.create({ name }));
+  async create(name: string): Promise<FrameworkEntity> {
+    try {
+      return await this.frameworks.save(this.frameworks.create({ name }));
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new ConflictException(`Framework with name ${name} already exists`);
+      }
+      throw error;
+    }
   }
 
   async addCategory(frameworkId: string, name: string, orderIndex: number): Promise<CategoryEntity> {
+    if (!isValidUuid(frameworkId)) {
+      throw new NotFoundException(`Framework ${frameworkId} not found`);
+    }
     const framework = await this.frameworks.findOne({ where: { id: frameworkId } });
     if (!framework) {
       throw new NotFoundException(`Framework ${frameworkId} not found`);
@@ -48,6 +66,9 @@ export class FrameworkRepository {
     weight: number,
     gradeExpectations: GradeExpectationInput[],
   ): Promise<CompetencyEntity> {
+    if (!isValidUuid(categoryId)) {
+      throw new NotFoundException(`Category ${categoryId} not found`);
+    }
     const category = await this.categories.findOne({ where: { id: categoryId } });
     if (!category) {
       throw new NotFoundException(`Category ${categoryId} not found`);
@@ -56,17 +77,24 @@ export class FrameworkRepository {
       this.competencies.create({ categoryId, name, description: description ?? null, weight }),
     );
     if (gradeExpectations.length > 0) {
-      await this.gradeExpectations.save(
-        gradeExpectations.map((entry) =>
-          this.gradeExpectations.create({ competencyId: competency.id, grade: entry.grade, description: entry.description }),
-        ),
-      );
+      try {
+        await this.gradeExpectations.save(
+          gradeExpectations.map((entry) =>
+            this.gradeExpectations.create({ competencyId: competency.id, grade: entry.grade, description: entry.description }),
+          ),
+        );
+      } catch (error) {
+        if (isUniqueViolation(error)) {
+          throw new ConflictException(`Duplicate grade expectation for competency ${competency.id}`);
+        }
+        throw error;
+      }
     }
     return competency;
   }
 
   async findByIdWithStructure(id: string): Promise<FrameworkWithStructure | null> {
-    if (!UUID_PATTERN.test(id)) {
+    if (!isValidUuid(id)) {
       return null;
     }
     const framework = await this.frameworks.findOne({ where: { id } });
