@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "packages/*",
-    "services/*"
+    "services/*",
+    "apps/*"
   ],
   "scripts": {
     "lint": "npm run lint --workspaces --if-present",
