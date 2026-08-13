@@ -1,4 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
+import { Grade } from '@pmp/shared';
+
+const VALID_GRADES = new Set<string>(Object.values(Grade));
 
 export interface CreateFrameworkDto {
   name: string;
@@ -41,10 +44,15 @@ export function parseCreateCompetencyDto(body: unknown): CreateCompetencyDto {
   }
   const weight = typeof candidate.weight === 'number' ? candidate.weight : 1;
   const gradeExpectations = Array.isArray(candidate.gradeExpectations)
-    ? candidate.gradeExpectations.filter(
-        (entry): entry is GradeExpectationInput =>
-          typeof entry?.grade === 'string' && typeof entry?.description === 'string',
-      )
+    ? candidate.gradeExpectations.map((entry, index) => {
+        if (typeof entry?.grade !== 'string' || typeof entry?.description !== 'string') {
+          throw new BadRequestException(`gradeExpectations[${index}] must have grade and description`);
+        }
+        if (!VALID_GRADES.has(entry.grade)) {
+          throw new BadRequestException(`gradeExpectations[${index}].grade must be one of: ${[...VALID_GRADES].join(', ')}`);
+        }
+        return entry;
+      })
     : [];
   return {
     name: candidate.name.trim(),
