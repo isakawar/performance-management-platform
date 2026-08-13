@@ -1,8 +1,19 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { getAccessToken } from '@/lib/auth-storage';
+
 export default function HomePage(): JSX.Element {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace(getAccessToken() ? '/reviews' : '/login');
+  }, [router]);
+
   return (
     <main className="p-8">
-      <h1 className="text-2xl font-semibold">PMP Assessment Demo</h1>
-      <p className="mt-2 text-slate-600">Placeholder home page — replaced in a later task.</p>
+      <p className="text-slate-500">Redirecting…</p>
     </main>
   );
 }
