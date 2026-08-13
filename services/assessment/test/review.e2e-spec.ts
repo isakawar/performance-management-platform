@@ -16,9 +16,12 @@ import { ReviewEntity } from '../src/review/review.entity';
 import { AssessmentEntity } from '../src/review/assessment.entity';
 import { ReviewRepository } from '../src/review/review.repository';
 import { ReviewController } from '../src/review/review.controller';
+import { AssessmentAnswerEntity } from '../src/assessment-answer/assessment-answer.entity';
+import { AssessmentAnswerRepository } from '../src/assessment-answer/assessment-answer.repository';
 import { CreateFramework1723600000000 } from '../src/database/migrations/1723600000000-create-framework';
 import { CreateQuestionnaire1723610000000 } from '../src/database/migrations/1723610000000-create-questionnaire';
 import { CreateReview1723620000000 } from '../src/database/migrations/1723620000000-create-review';
+import { CreateAssessmentAnswer1723630000000 } from '../src/database/migrations/1723630000000-create-assessment-answer';
 
 describe('ReviewController (e2e)', () => {
   let app: INestApplication;
@@ -44,8 +47,9 @@ describe('ReviewController (e2e)', () => {
             QuestionnaireEntity,
             ReviewEntity,
             AssessmentEntity,
+            AssessmentAnswerEntity,
           ],
-          migrations: [CreateFramework1723600000000, CreateQuestionnaire1723610000000, CreateReview1723620000000],
+          migrations: [CreateFramework1723600000000, CreateQuestionnaire1723610000000, CreateReview1723620000000, CreateAssessmentAnswer1723630000000],
           migrationsRun: true,
           synchronize: false,
         }),
@@ -57,10 +61,11 @@ describe('ReviewController (e2e)', () => {
           QuestionnaireEntity,
           ReviewEntity,
           AssessmentEntity,
+          AssessmentAnswerEntity,
         ]),
       ],
       controllers: [HealthController, ReviewController],
-      providers: [FrameworkRepository, QuestionnaireRepository, ReviewRepository],
+      providers: [FrameworkRepository, QuestionnaireRepository, ReviewRepository, AssessmentAnswerRepository],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -133,5 +138,32 @@ describe('ReviewController (e2e)', () => {
       ]),
     );
     expect(fetched.body.comparison).toBeUndefined();
+  });
+
+  it('GET /reviews/:id includes a comparison once both assessments are submitted', async () => {
+    const frameworks = app.get(FrameworkRepository);
+    const questionnaires = app.get(QuestionnaireRepository);
+    const reviews = app.get(ReviewRepository);
+    const answers = app.get(AssessmentAnswerRepository);
+
+    const framework = await frameworks.create('Comparison Test Framework');
+    const category = await frameworks.addCategory(framework.id, 'Hard Skills', 0);
+    const competency = await frameworks.addCompetency(category.id, 'Debugging', undefined, 1, []);
+    const questionnaire = await questionnaires.create('Comparison Test Questionnaire', 'QA', framework.id);
+    const created = await reviews.createReview(questionnaire.id, 'qa1@racoongang.com', 'lead1@racoongang.com');
+
+    await answers.saveDraft(created.selfAssessmentId, [{ competencyId: competency.id, grade: 'MIDDLE' }]);
+    await answers.saveDraft(created.leadAssessmentId, [{ competencyId: competency.id, grade: 'SENIOR' }]);
+    await reviews.markSubmitted(created.selfAssessmentId);
+    await reviews.markSubmitted(created.leadAssessmentId);
+
+    const fetched = await request(app.getHttpServer())
+      .get(`/reviews/${created.review.id}`)
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .expect(200);
+
+    expect(fetched.body.comparison).toEqual([
+      { competencyId: competency.id, selfGrade: 'MIDDLE', leadGrade: 'SENIOR' },
+    ]);
   });
 });
