@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { HealthController } from '../src/health/health.controller';
@@ -165,5 +166,17 @@ describe('ReviewController (e2e)', () => {
     expect(fetched.body.comparison).toEqual([
       { competencyId: competency.id, selfGrade: 'MIDDLE', leadGrade: 'SENIOR' },
     ]);
+  });
+
+  it('createReview always leaves exactly two assessment rows for the review (SELF + LEAD)', async () => {
+    // This only locks in the "always exactly two rows" invariant on the happy path;
+    // it does not exercise a real Postgres-level abort, which would need fault injection.
+    const reviews = app.get(ReviewRepository);
+    const dataSource = app.get(DataSource);
+
+    const created = await reviews.createReview(questionnaireId, 'qa1@racoongang.com', 'lead1@racoongang.com');
+
+    const count = await dataSource.getRepository(AssessmentEntity).count({ where: { reviewId: created.review.id } });
+    expect(count).toBe(2);
   });
 });

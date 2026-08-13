@@ -16,20 +16,32 @@ function startMockUpstream(handler: (req: import('http').IncomingMessage, res: i
   });
 }
 
+// Echoes back path/authorization (as before) plus the raw request body, so tests can
+// assert the proxy actually forwards a POST body rather than dropping/consuming it.
+function echoingHandler(req: import('http').IncomingMessage, res: import('http').ServerResponse): void {
+  const chunks: Buffer[] = [];
+  req.on('data', (chunk) => chunks.push(chunk));
+  req.on('end', () => {
+    const rawBody = Buffer.concat(chunks).toString('utf8');
+    let body: unknown = null;
+    try {
+      body = rawBody.length > 0 ? JSON.parse(rawBody) : null;
+    } catch {
+      body = rawBody;
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ path: req.url, authorization: req.headers.authorization ?? null, body }));
+  });
+}
+
 describe('Gateway proxy (e2e)', () => {
   let app: INestApplication;
   let authUpstream: { server: Server; url: string };
   let assessmentUpstream: { server: Server; url: string };
 
   beforeAll(async () => {
-    authUpstream = await startMockUpstream((req, res) => {
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ path: req.url, authorization: req.headers.authorization ?? null }));
-    });
-    assessmentUpstream = await startMockUpstream((req, res) => {
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ path: req.url, authorization: req.headers.authorization ?? null }));
-    });
+    authUpstream = await startMockUpstream(echoingHandler);
+    assessmentUpstream = await startMockUpstream(echoingHandler);
 
     process.env.AUTH_SERVICE_URL = authUpstream.url;
     process.env.ASSESSMENT_SERVICE_URL = assessmentUpstream.url;
@@ -57,7 +69,7 @@ describe('Gateway proxy (e2e)', () => {
       .set('Authorization', 'Bearer test-token')
       .expect(200);
 
-    expect(response.body).toEqual({ path: '/auth/google', authorization: 'Bearer test-token' });
+    expect(response.body).toEqual({ path: '/auth/google', authorization: 'Bearer test-token', body: null });
   });
 
   it('forwards /api/assessment/* to the assessment service with the /api prefix stripped', async () => {
@@ -66,10 +78,36 @@ describe('Gateway proxy (e2e)', () => {
       .set('Authorization', 'Bearer test-token')
       .expect(200);
 
-    expect(response.body).toEqual({ path: '/assessment/frameworks', authorization: 'Bearer test-token' });
+    expect(response.body).toEqual({ path: '/assessment/frameworks', authorization: 'Bearer test-token', body: null });
   });
 
   it('still serves /health directly from the gateway, unproxied', () => {
     return request(app.getHttpServer()).get('/health').expect(200).expect({ status: 'ok' });
+  });
+
+  it('forwards the JSON request body on a proxied POST (guards against body-parser/proxy ordering regressions)', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/google')
+      .send({ test: 'value' })
+      .expect(200);
+
+    expect(response.body).toEqual({
+      path: '/auth/google',
+      authorization: null,
+      body: { test: 'value' },
+    });
+  });
+
+  it('forwards the JSON request body on a proxied POST to the assessment service', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/assessment/frameworks')
+      .send({ test: 'value' })
+      .expect(200);
+
+    expect(response.body).toEqual({
+      path: '/assessment/frameworks',
+      authorization: null,
+      body: { test: 'value' },
+    });
   });
 });

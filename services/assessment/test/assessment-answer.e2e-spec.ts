@@ -26,8 +26,10 @@ import { CreateAssessmentAnswer1723630000000 } from '../src/database/migrations/
 describe('AssessmentController (e2e)', () => {
   let app: INestApplication;
   let container: StartedPostgreSqlContainer;
+  let jwtService: JwtService;
   let employeeToken: string;
   let leadToken: string;
+  let thirdPartyToken: string;
   let competencyId: string;
   let selfAssessmentId: string;
   let leadAssessmentId: string;
@@ -78,9 +80,10 @@ describe('AssessmentController (e2e)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
 
-    const jwtService = moduleFixture.get(JwtService);
+    jwtService = moduleFixture.get(JwtService);
     employeeToken = jwtService.sign({ sub: 'e1', email: 'qa1@racoongang.com' });
     leadToken = jwtService.sign({ sub: 'l1', email: 'lead1@racoongang.com' });
+    thirdPartyToken = jwtService.sign({ sub: 't1', email: 'thirdparty@racoongang.com' });
 
     const frameworks = moduleFixture.get(FrameworkRepository);
     const questionnaires = moduleFixture.get(QuestionnaireRepository);
@@ -123,6 +126,28 @@ describe('AssessmentController (e2e)', () => {
       .expect(403);
   });
 
+  it('blocks a third party (neither employee nor lead) from reading the self assessment while it is still DRAFT', async () => {
+    await request(app.getHttpServer())
+      .get(`/assessments/${selfAssessmentId}`)
+      .set('Authorization', `Bearer ${thirdPartyToken}`)
+      .expect(403);
+  });
+
+  it('rejects a non-owner (lead) attempting to save answers on the self assessment', async () => {
+    await request(app.getHttpServer())
+      .put(`/assessments/${selfAssessmentId}/answers`)
+      .set('Authorization', `Bearer ${leadToken}`)
+      .send({ answers: [{ competencyId, grade: 'MIDDLE' }] })
+      .expect(403);
+  });
+
+  it('rejects a non-owner (lead) attempting to submit the self assessment', async () => {
+    await request(app.getHttpServer())
+      .post(`/assessments/${selfAssessmentId}/submit`)
+      .set('Authorization', `Bearer ${leadToken}`)
+      .expect(403);
+  });
+
   it('rejects submit when a competency is unanswered, then succeeds once answered', async () => {
     await request(app.getHttpServer())
       .post(`/assessments/${leadAssessmentId}/submit`)
@@ -152,6 +177,20 @@ describe('AssessmentController (e2e)', () => {
       .set('Authorization', `Bearer ${leadToken}`)
       .expect(200);
     expect(leadReadingSelf.body.answers).toEqual([expect.objectContaining({ grade: 'MIDDLE' })]);
+  });
+
+  it('allows a third party to read either assessment once both are SUBMITTED', async () => {
+    const thirdPartyReadingSelf = await request(app.getHttpServer())
+      .get(`/assessments/${selfAssessmentId}`)
+      .set('Authorization', `Bearer ${thirdPartyToken}`)
+      .expect(200);
+    expect(thirdPartyReadingSelf.body.answers).toEqual([expect.objectContaining({ grade: 'MIDDLE' })]);
+
+    const thirdPartyReadingLead = await request(app.getHttpServer())
+      .get(`/assessments/${leadAssessmentId}`)
+      .set('Authorization', `Bearer ${thirdPartyToken}`)
+      .expect(200);
+    expect(thirdPartyReadingLead.body.answers).toEqual([expect.objectContaining({ grade: 'SENIOR' })]);
   });
 
   it('rejects editing answers after submit', async () => {
