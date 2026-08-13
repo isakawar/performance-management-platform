@@ -52,6 +52,25 @@ services:
       timeout: 5s
       retries: 10
 
+  assessment:
+    build:
+      context: .
+      dockerfile: services/assessment/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://pmp:pmp_dev_password@postgres:5432/pmp
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+    ports:
+      - "127.0.0.1:3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   gateway:
     build:
       context: .
@@ -59,12 +78,16 @@ services:
     restart: unless-stopped
     environment:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      AUTH_SERVICE_URL: http://auth:3001
+      ASSESSMENT_SERVICE_URL: http://assessment:3003
     ports:
       - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      assessment:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
