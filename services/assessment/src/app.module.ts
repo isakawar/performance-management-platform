@@ -15,9 +15,13 @@ import { ReviewController } from './review/review.controller';
 import { ReviewEntity } from './review/review.entity';
 import { AssessmentEntity } from './review/assessment.entity';
 import { ReviewRepository } from './review/review.repository';
+import { AssessmentAnswerEntity } from './assessment-answer/assessment-answer.entity';
+import { AssessmentAnswerRepository } from './assessment-answer/assessment-answer.repository';
+import { AssessmentController } from './assessment-answer/assessment.controller';
 import { CreateFramework1723600000000 } from './database/migrations/1723600000000-create-framework';
 import { CreateQuestionnaire1723610000000 } from './database/migrations/1723610000000-create-questionnaire';
 import { CreateReview1723620000000 } from './database/migrations/1723620000000-create-review';
+import { CreateAssessmentAnswer1723630000000 } from './database/migrations/1723630000000-create-assessment-answer';
 
 function requireJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -46,8 +50,14 @@ function requireJwtSecret(): string {
         QuestionnaireEntity,
         ReviewEntity,
         AssessmentEntity,
+        AssessmentAnswerEntity,
       ],
-      migrations: [CreateFramework1723600000000, CreateQuestionnaire1723610000000, CreateReview1723620000000],
+      migrations: [
+        CreateFramework1723600000000,
+        CreateQuestionnaire1723610000000,
+        CreateReview1723620000000,
+        CreateAssessmentAnswer1723630000000,
+      ],
       migrationsRun: true,
       synchronize: false,
     }),
@@ -59,9 +69,17 @@ function requireJwtSecret(): string {
       QuestionnaireEntity,
       ReviewEntity,
       AssessmentEntity,
+      AssessmentAnswerEntity,
     ]),
   ],
-  controllers: [HealthController, FrameworkController, CategoryController, QuestionnaireController, ReviewController],
-  providers: [FrameworkRepository, QuestionnaireRepository, ReviewRepository],
+  controllers: [
+    HealthController,
+    FrameworkController,
+    CategoryController,
+    QuestionnaireController,
+    ReviewController,
+    AssessmentController,
+  ],
+  providers: [FrameworkRepository, QuestionnaireRepository, ReviewRepository, AssessmentAnswerRepository],
 })
 export class AppModule {}
