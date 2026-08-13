@@ -6,6 +6,7 @@ RUN npm ci
 ARG NEXT_PUBLIC_GATEWAY_URL=http://localhost:3000
 ENV NEXT_PUBLIC_GATEWAY_URL=${NEXT_PUBLIC_GATEWAY_URL}
 RUN npm run build --workspace=@pmp/web
+RUN npm prune --omit=dev
 
 FROM node:20-alpine
 WORKDIR /app
